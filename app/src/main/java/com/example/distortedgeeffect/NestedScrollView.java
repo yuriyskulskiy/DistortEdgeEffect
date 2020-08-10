@@ -21,7 +21,6 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.animation.AnimationUtils;
-import android.widget.EdgeEffect;
 import android.widget.FrameLayout;
 import android.widget.OverScroller;
 import android.widget.ScrollView;
@@ -39,7 +38,6 @@ import androidx.core.view.ScrollingView;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.core.view.accessibility.AccessibilityRecordCompat;
-import androidx.core.widget.EdgeEffectCompat;
 
 import java.util.List;
 
@@ -79,8 +77,8 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
 
     private final Rect mTempRect = new Rect();
     private OverScroller mScroller;
-    private EdgeEffect mEdgeGlowTop;
-    private EdgeEffect mEdgeGlowBottom;
+    private DistortEdgeEffect mEdgeGlowTop;
+    private DistortEdgeEffect mEdgeGlowBottom;
 
     /**
      * Position of the last motion event.
@@ -896,13 +894,13 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
                         ensureGlows();
                         final int pulledToY = oldY + deltaY;
                         if (pulledToY < 0) {
-                            EdgeEffectCompat.onPull(mEdgeGlowTop, (float) deltaY / getHeight(),
+                            mEdgeGlowTop.onPull((float) deltaY / getHeight(),
                                     ev.getX(activePointerIndex) / getWidth());
                             if (!mEdgeGlowBottom.isFinished()) {
                                 mEdgeGlowBottom.onRelease();
                             }
                         } else if (pulledToY > range) {
-                            EdgeEffectCompat.onPull(mEdgeGlowBottom, (float) deltaY / getHeight(),
+                            mEdgeGlowBottom.onPull((float) deltaY / getHeight(),
                                     1.f - ev.getX(activePointerIndex)
                                             / getWidth());
                             if (!mEdgeGlowTop.isFinished()) {
@@ -1906,8 +1904,8 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
         if (getOverScrollMode() != View.OVER_SCROLL_NEVER) {
             if (mEdgeGlowTop == null) {
                 Context context = getContext();
-                mEdgeGlowTop = new EdgeEffect(context);
-                mEdgeGlowBottom = new EdgeEffect(context);
+                mEdgeGlowTop = new DistortEdgeEffect(context);
+                mEdgeGlowBottom = new DistortEdgeEffect(context);
             }
         } else {
             mEdgeGlowTop = null;
