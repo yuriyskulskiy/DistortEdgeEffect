@@ -11,7 +11,6 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 
 import androidx.annotation.ColorInt;
-import androidx.annotation.Nullable;
 
 
 public class DistortEdgeEffect {
@@ -51,6 +50,11 @@ public class DistortEdgeEffect {
     private static final float SIN = (float) Math.sin(ANGLE);
     private static final float COS = (float) Math.cos(ANGLE);
     private static final float RADIUS_FACTOR = 0.6f;
+
+    //my addon fields
+    private int mFulHeight;
+    private int mFullWidth;
+    private float maxDistortionHeight;
 
     private float mGlowAlpha;
 
@@ -123,6 +127,10 @@ public class DistortEdgeEffect {
         mBaseGlowScale = h > 0 ? Math.min(oh / h, 1.f) : 1.f;
 
         mBounds.set(mBounds.left, mBounds.top, width, (int) Math.min(height, h));
+
+        mFulHeight = height;
+        mFullWidth = width;
+        maxDistortionHeight = h;
     }
 
     /**
@@ -349,6 +357,57 @@ public class DistortEdgeEffect {
         }
 
         return mState != STATE_IDLE || oneLastFrame;
+    }
+
+    public boolean drawWithDistortion(Canvas canvas) {
+        update();
+
+        float currentRadiusMultiplier = Math.min(mGlowScaleY, 1.f) * mBaseGlowScale;
+
+        float currentDistortionHeight = currentRadiusMultiplier * maxDistortionHeight;
+        final float centerX = mDisplacement * mFullWidth;
+        final float centerY = computeCenterY(currentDistortionHeight);
+        float rLength = (currentDistortionHeight + Math.abs(centerY));
+
+        canvas.drawCircle(centerX, centerY, rLength, mPaint);
+
+        boolean oneLastFrame = false;
+        if (mState == STATE_RECEDE && mGlowScaleY == 0) {
+            mState = STATE_IDLE;
+            oneLastFrame = true;
+        }
+
+        return mState != STATE_IDLE || oneLastFrame;
+    }
+
+    private float computeCenterY(float distortionHeight) {
+        float leftDisplacementOffset = mDisplacement * mFullWidth;
+        float x1;
+        float y1 = 0;
+
+        float x2 = leftDisplacementOffset;
+        float y2 = distortionHeight;
+
+        float x3;
+        float y3 = 0;
+
+        if (mDisplacement <= 0.5) {
+            x1 = 2 * leftDisplacementOffset - mFullWidth;
+            x3 = mFullWidth;
+        } else {
+            x1 = 0;
+            x3 = 2 * leftDisplacementOffset;
+        }
+
+        double numerator = (double) (x1 * (Math.pow(x2, 2) + Math.pow(y2, 2)
+                - Math.pow(x3, 2) - Math.pow(y3, 2))
+                + x2 * (Math.pow(x3, 2) + Math.pow(y3, 2)
+                - Math.pow(x1, 2) - Math.pow(y1, 2))
+                + x3 * (Math.pow(x1, 2) + Math.pow(y1, 2)
+                - Math.pow(x2, 2) - Math.pow(y2, 2)));
+        float denominator = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+
+        return (float) (numerator / denominator);
     }
 
     /**

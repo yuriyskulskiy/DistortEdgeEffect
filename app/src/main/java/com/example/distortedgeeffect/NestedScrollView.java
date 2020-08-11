@@ -43,7 +43,8 @@ import java.util.List;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX;
 
-public class NestedScrollView extends FrameLayout implements NestedScrollingParent3,
+public class NestedScrollView extends FrameLayout
+        implements NestedScrollingParent3,
         NestedScrollingChild3, ScrollingView {
     static final int ANIMATED_SCROLL_GAP = 250;
 
@@ -1934,7 +1935,8 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
                 }
                 canvas.translate(xTranslation, yTranslation);
                 mEdgeGlowTop.setSize(width, height);
-                if (mEdgeGlowTop.draw(canvas)) {
+//                if (mEdgeGlowTop.draw(canvas)) {
+                if (mEdgeGlowTop.drawWithDistortion(canvas)) {
                     ViewCompat.postInvalidateOnAnimation(this);
                 }
                 canvas.restoreToCount(restoreCount);
