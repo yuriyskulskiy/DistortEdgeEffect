@@ -1,6 +1,7 @@
 package com.example.distortedgeeffect;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.BlendMode;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -49,9 +50,11 @@ public class DistortEdgeEffect {
     private static final double ANGLE = Math.PI / 6;
     private static final float SIN = (float) Math.sin(ANGLE);
     private static final float COS = (float) Math.cos(ANGLE);
-    private static final float RADIUS_FACTOR = 0.6f;
+    private static final float RADIUS_FACTOR = 1f;
+    private final int HORIZONTAL_STEPS_COUNT = 40;
 
-    //my addon fields
+    private float[] mDistrotedVertices;
+    private float mStepWidth;
     private int mFulHeight;
     private int mFullWidth;
     private float maxDistortionHeight;
@@ -131,6 +134,9 @@ public class DistortEdgeEffect {
         mFulHeight = height;
         mFullWidth = width;
         maxDistortionHeight = h;
+
+        mDistrotedVertices = new float[(HORIZONTAL_STEPS_COUNT + 1) * 4];
+        mStepWidth = width / (float) HORIZONTAL_STEPS_COUNT;
     }
 
     /**
@@ -359,7 +365,9 @@ public class DistortEdgeEffect {
         return mState != STATE_IDLE || oneLastFrame;
     }
 
-    public boolean drawWithDistortion(Canvas canvas) {
+    public boolean drawWithDistortion(Canvas canvas, Bitmap bitmap,
+                                      float offsetY, Bitmap mHelperBitmap,
+                                      Canvas mHelperCanvas) {
         update();
 
         float currentRadiusMultiplier = Math.min(mGlowScaleY, 1.f) * mBaseGlowScale;
@@ -369,7 +377,15 @@ public class DistortEdgeEffect {
         final float centerY = computeCenterY(currentDistortionHeight);
         float rLength = (currentDistortionHeight + Math.abs(centerY));
 
-        canvas.drawCircle(centerX, centerY, rLength, mPaint);
+        computeDistoredVetices(centerX, centerY, rLength);
+
+
+        mHelperBitmap.eraseColor(Color.TRANSPARENT);
+        mHelperCanvas
+                .drawBitmapMesh(bitmap, HORIZONTAL_STEPS_COUNT,
+                        1, mDistrotedVertices,
+                        0, null, 0, null);
+        canvas.drawBitmap(mHelperBitmap, 0, offsetY, null);
 
         boolean oneLastFrame = false;
         if (mState == STATE_RECEDE && mGlowScaleY == 0) {
@@ -408,6 +424,32 @@ public class DistortEdgeEffect {
         float denominator = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
 
         return (float) (numerator / denominator);
+    }
+
+    private void computeDistoredVetices(float ceterX, float xenterY, float radius) {
+
+        for (int i = 0; i < mDistrotedVertices.length; i += 2) {
+
+            if (i < mDistrotedVertices.length / 2) {
+
+                mDistrotedVertices[i] = i / 2f * mStepWidth;
+                int pointY = computePointY(ceterX, xenterY,
+                        radius, mDistrotedVertices[i]);
+                mDistrotedVertices[i + 1] = 0 + pointY;
+
+            } else {
+                mDistrotedVertices[i] = (i - mDistrotedVertices.length / 2f) / 2 * mStepWidth;
+                mDistrotedVertices[i + 1] = mFulHeight;
+            }
+        }
+    }
+
+    private int computePointY(float centerX, float centerY, float radius, float pointX) {
+        if (centerY == Float.POSITIVE_INFINITY || radius == Float.POSITIVE_INFINITY) {
+            return 0;
+        }
+        return (int) (Math.sqrt(Math.pow(radius, 2)
+                - Math.pow(centerX - pointX, 2)) + centerY);
     }
 
     /**

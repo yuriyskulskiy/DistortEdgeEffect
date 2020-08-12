@@ -2,9 +2,9 @@ package com.example.distortedgeeffect;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -80,6 +80,12 @@ public class NestedScrollView extends FrameLayout
     private OverScroller mScroller;
     private DistortEdgeEffect mEdgeGlowTop;
     private DistortEdgeEffect mEdgeGlowBottom;
+
+    private Bitmap mDistortBitmap;
+    private Canvas mDistortCanvas;
+
+    private Bitmap mHelperBitmap;
+    private Canvas mHelperCanvas;
 
     /**
      * Position of the last motion event.
@@ -1819,6 +1825,21 @@ public class NestedScrollView extends FrameLayout
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
 
+        mDistortBitmap = Bitmap
+                .createBitmap(w,
+                        h,
+                        Bitmap.Config.ARGB_8888);
+
+        mDistortCanvas = new Canvas(mDistortBitmap);
+        mDistortCanvas.save();
+
+        //workaround
+        mHelperBitmap = Bitmap
+                .createBitmap(w,
+                        h,
+                        Bitmap.Config.ARGB_8888);
+        mHelperCanvas = new Canvas(mHelperBitmap);
+
         View currentFocused = findFocus();
         if (null == currentFocused || this == currentFocused) {
             return;
@@ -1916,53 +1937,57 @@ public class NestedScrollView extends FrameLayout
 
     @Override
     public void draw(Canvas canvas) {
-        super.draw(canvas);
-        if (mEdgeGlowTop != null) {
-            final int scrollY = getScrollY();
-            if (!mEdgeGlowTop.isFinished()) {
-                final int restoreCount = canvas.save();
-                int width = getWidth();
-                int height = getHeight();
-                int xTranslation = 0;
-                int yTranslation = Math.min(0, scrollY);
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP || getClipToPadding()) {
-                    width -= getPaddingLeft() + getPaddingRight();
-                    xTranslation += getPaddingLeft();
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && getClipToPadding()) {
-                    height -= getPaddingTop() + getPaddingBottom();
-                    yTranslation += getPaddingTop();
-                }
-                canvas.translate(xTranslation, yTranslation);
-                mEdgeGlowTop.setSize(width, height);
-//                if (mEdgeGlowTop.draw(canvas)) {
-                if (mEdgeGlowTop.drawWithDistortion(canvas)) {
-                    ViewCompat.postInvalidateOnAnimation(this);
-                }
-                canvas.restoreToCount(restoreCount);
+        boolean hasEdgeDistortion = false;
+
+        if (mEdgeGlowTop != null && !mEdgeGlowTop.isFinished()) {
+
+            hasEdgeDistortion = true;
+
+            final int restoreCount = mDistortCanvas.save();
+            mDistortCanvas.translate(0, -getScrollY());
+
+            super.draw(mDistortCanvas);
+            int width = getWidth();
+            int height = getHeight();
+
+            mEdgeGlowTop.setSize(width, height);
+
+            if (mEdgeGlowTop.drawWithDistortion(canvas, mDistortBitmap,
+                    getScrollY(), mHelperBitmap, mHelperCanvas)) {
+                ViewCompat.postInvalidateOnAnimation(this);
             }
-            if (!mEdgeGlowBottom.isFinished()) {
-                final int restoreCount = canvas.save();
-                int width = getWidth();
-                int height = getHeight();
-                int xTranslation = 0;
-                int yTranslation = Math.max(getScrollRange(), scrollY) + height;
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP || getClipToPadding()) {
-                    width -= getPaddingLeft() + getPaddingRight();
-                    xTranslation += getPaddingLeft();
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && getClipToPadding()) {
-                    height -= getPaddingTop() + getPaddingBottom();
-                    yTranslation -= getPaddingBottom();
-                }
-                canvas.translate(xTranslation - width, yTranslation);
-                canvas.rotate(180, width, 0);
-                mEdgeGlowBottom.setSize(width, height);
-                if (mEdgeGlowBottom.draw(canvas)) {
-                    ViewCompat.postInvalidateOnAnimation(this);
-                }
-                canvas.restoreToCount(restoreCount);
+            mDistortCanvas.restoreToCount(restoreCount);
+        }
+
+        if (mEdgeGlowBottom != null && !mEdgeGlowBottom.isFinished()) {
+            hasEdgeDistortion = true;
+
+            int width = getWidth();
+            int height = getHeight();
+
+            int saveDistortCanvas = mDistortCanvas.save();
+
+            mDistortCanvas.translate(width, getHeight() + getScrollY());
+            mDistortCanvas.rotate(180, 0, 0);
+
+            int saveHelperCanvas = mHelperCanvas.save();
+            mHelperCanvas.translate(getWidth(), getHeight());
+            mHelperCanvas.rotate(180, 0, 0);
+            super.draw(mDistortCanvas);
+
+
+            mEdgeGlowBottom.setSize(width, height);
+            if (mEdgeGlowBottom.drawWithDistortion(canvas,
+                    mDistortBitmap, getScrollY(), mHelperBitmap, mHelperCanvas)) {
+                ViewCompat.postInvalidateOnAnimation(this);
             }
+
+            mHelperCanvas.restoreToCount(saveHelperCanvas);
+            mDistortCanvas.restoreToCount(saveDistortCanvas);
+        }
+
+        if (!hasEdgeDistortion) {
+            super.draw(canvas);
         }
     }
 
